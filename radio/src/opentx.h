@@ -326,7 +326,7 @@ void memswap(void * a, void * b, uint8_t size);
 
 #if defined(PCBFLAMENCO) || defined(PCBHORUS) || defined(PCBX9E) || defined(PCBX7)
   #define PWR_BUTTON_DELAY
-  #define PWR_PRESS_SHUTDOWN           300 // 3s
+  #define PWR_PRESS_SHUTDOWN           150 // 1,5s
 #endif
 
 #define GET_LOWRES_POT_POSITION(i)     (getValue(MIXSRC_FIRST_POT+(i)) >> 4)
@@ -512,7 +512,7 @@ extern uint8_t channel_order(uint8_t x);
 #endif
 
 #if defined(PCBHORUS)
-  #define SPLASH_TIMEOUT  300 /* 3s */
+  #define SPLASH_TIMEOUT  100 /* 1s */
 #elif defined(FSPLASH)
   #define SPLASH_TIMEOUT  (g_eeGeneral.splashMode == 0 ? 60000/*infinite=10mn*/ : ((4*100) * (g_eeGeneral.splashMode & 0x03)))
 #elif defined(PCBTARANIS) || defined(PCBFLAMENCO)
