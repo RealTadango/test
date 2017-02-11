@@ -35,8 +35,6 @@
 #include <stdlib.h>
 #include <bitset>
 
-std::list<QString> EEPROMWarnings;
-
 const uint8_t chout_ar[] = { // First number is 0..23 -> template setup,  Second is relevant channel out
   1,2,3,4 , 1,2,4,3 , 1,3,2,4 , 1,3,4,2 , 1,4,2,3 , 1,4,3,2,
   2,1,3,4 , 2,1,4,3 , 2,3,1,4 , 2,3,4,1 , 2,4,1,3 , 2,4,3,1,
@@ -582,14 +580,14 @@ bool RawSource::isPot() const
 {
   return (type == SOURCE_TYPE_STICK &&
           index >= CPN_MAX_STICKS &&
-          index < CPN_MAX_STICKS+getCurrentFirmware()->getCapability(Pots));
+          index < CPN_MAX_STICKS + getBoardCapability(getCurrentBoard(), Board::Pots));
 }
 
 bool RawSource::isSlider() const
 {
   return (type == SOURCE_TYPE_STICK &&
-          index >= CPN_MAX_STICKS+getCurrentFirmware()->getCapability(Pots) &&
-          index < CPN_MAX_STICKS+getCurrentFirmware()->getCapability(Pots)+getCurrentFirmware()->getCapability(Sliders));
+          index >= CPN_MAX_STICKS + getBoardCapability(getCurrentBoard(), Board::Pots) &&
+          index < CPN_MAX_STICKS + getBoardCapability(getCurrentBoard(), Board::Pots) + getBoardCapability(getCurrentBoard(), Board::Sliders));
 }
 
 QString RawSwitch::toString(Board::Type board) const
@@ -1045,13 +1043,13 @@ bool GeneralSettings::switchSourceAllowedTaranis(int index) const
 
 bool GeneralSettings::isPotAvailable(int index) const
 {
-  if (index<0 || index>getCurrentFirmware()->getCapability(Pots)) return false;
+  if (index<0 || index>getBoardCapability(getCurrentBoard(), Board::Pots)) return false;
   return potConfig[index] != Board::POT_NONE;
 }
 
 bool GeneralSettings::isSliderAvailable(int index) const
 {
-  if (index<0 || index>getCurrentFirmware()->getCapability(Sliders)) return false;
+  if (index<0 || index>getBoardCapability(getCurrentBoard(), Board::Sliders)) return false;
   return sliderConfig[index] != Board::SLIDER_NONE;
 }
 
@@ -1071,7 +1069,7 @@ GeneralSettings::GeneralSettings()
   Firmware * firmware = getCurrentFirmware();
   Board::Type board = firmware->getBoard();
 
-  for (int i=0; i<firmware->getCapability(FactoryInstalledSwitches); i++) {
+  for (int i=0; i<getBoardCapability(board, Board::FactoryInstalledSwitches); i++) {
     switchConfig[i] = getSwitchInfo(board, i).config;
   }
 
@@ -1120,23 +1118,23 @@ GeneralSettings::GeneralSettings()
     strcpy(bluetoothName, "Taranis");
   }
 
-  templateSetup = g.profile[g.id()].channelOrder();
-  stickMode = g.profile[g.id()].defaultMode();
+  templateSetup = g.profile[g.sessionId()].channelOrder();
+  stickMode = g.profile[g.sessionId()].defaultMode();
 
-  QString t_calib = g.profile[g.id()].stickPotCalib();
-  int potsnum = getCurrentFirmware()->getCapability(Pots);
+  QString t_calib = g.profile[g.sessionId()].stickPotCalib();
+  int potsnum = getBoardCapability(getCurrentBoard(), Board::Pots);
   if (!t_calib.isEmpty()) {
-    QString t_trainercalib=g.profile[g.id()].trainerCalib();
-    int8_t t_txVoltageCalibration=(int8_t)g.profile[g.id()].txVoltageCalibration();
-    int8_t t_txCurrentCalibration=(int8_t)g.profile[g.id()].txCurrentCalibration();
-    int8_t t_PPM_Multiplier=(int8_t)g.profile[g.id()].ppmMultiplier();
-    uint8_t t_stickMode=(uint8_t)g.profile[g.id()].gsStickMode();
-    uint8_t t_vBatWarn=(uint8_t)g.profile[g.id()].vBatWarn();
-    QString t_DisplaySet=g.profile[g.id()].display();
-    QString t_BeeperSet=g.profile[g.id()].beeper();
-    QString t_HapticSet=g.profile[g.id()].haptic();
-    QString t_SpeakerSet=g.profile[g.id()].speaker();
-    QString t_CountrySet=g.profile[g.id()].countryCode();
+    QString t_trainercalib=g.profile[g.sessionId()].trainerCalib();
+    int8_t t_txVoltageCalibration=(int8_t)g.profile[g.sessionId()].txVoltageCalibration();
+    int8_t t_txCurrentCalibration=(int8_t)g.profile[g.sessionId()].txCurrentCalibration();
+    int8_t t_PPM_Multiplier=(int8_t)g.profile[g.sessionId()].ppmMultiplier();
+    uint8_t t_stickMode=(uint8_t)g.profile[g.sessionId()].gsStickMode();
+    uint8_t t_vBatWarn=(uint8_t)g.profile[g.sessionId()].vBatWarn();
+    QString t_DisplaySet=g.profile[g.sessionId()].display();
+    QString t_BeeperSet=g.profile[g.sessionId()].beeper();
+    QString t_HapticSet=g.profile[g.sessionId()].haptic();
+    QString t_SpeakerSet=g.profile[g.sessionId()].speaker();
+    QString t_CountrySet=g.profile[g.sessionId()].countryCode();
 
     if ((t_calib.length()==(CPN_MAX_STICKS+potsnum)*12) && (t_trainercalib.length()==16)) {
       QString Byte;
@@ -1745,8 +1743,10 @@ QString getBoardName(Board::Type board)
       return "9XR-PRO";
     case Board::BOARD_AR9X:
       return "AR9X";
-    case Board::BOARD_HORUS:
+    case Board::BOARD_X12S:
       return "Horus";
+    case Board::BOARD_X10:
+      return "X10";
     default:
       return "Unknown";
   }
@@ -1772,7 +1772,8 @@ const int Firmware::getFlashSize()
     case Board::BOARD_TARANIS_X9E:
     case Board::BOARD_FLAMENCO:
       return FSIZE_TARANIS;
-    case Board::BOARD_HORUS:
+    case Board::BOARD_X12S:
+    case Board::BOARD_X10:
       return FSIZE_HORUS;
     default:
       return 0;

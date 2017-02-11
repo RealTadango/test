@@ -605,7 +605,7 @@ bool MdiChild::saveAs(bool isNew)
   if (isNew)
     return saveFile(fileName);
   else
-    return saveFile(fileName,true);
+    return saveFile(fileName, true);
 }
 
 bool MdiChild::saveFile(const QString & filename, bool setCurrent)
@@ -614,7 +614,6 @@ bool MdiChild::saveFile(const QString & filename, bool setCurrent)
   Storage storage(filename);
   bool result = storage.write(radioData);
   if (!result) {
-    QMessageBox::warning(this, "Companion", tr("Cannot save file"), QMessageBox::Ok);
     return false;
   }
 
@@ -681,7 +680,7 @@ void MdiChild::setCurrentFile(const QString & fileName)
 void MdiChild::writeEeprom()  // write to Tx
 {
   Board::Type board = getCurrentBoard();
-  if (board == Board::BOARD_HORUS) {
+  if (IS_HORUS(board)) {
     QString radioPath = findMassstoragePath("RADIO", true);
     qDebug() << "Searching for SD card, found" << radioPath;
     if (radioPath.isEmpty()) {

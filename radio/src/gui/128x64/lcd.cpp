@@ -727,7 +727,7 @@ void lcdDrawVerticalLine(coord_t x, scoord_t y, scoord_t h, uint8_t pat, LcdFlag
   if (pat==DOTTED && !(y%2))
     pat = ~pat;
 
-  uint8_t *p  = &displayBuf[ y / 8 * LCD_W + x ];
+  uint8_t * p  = &displayBuf[ y / 8 * LCD_W + x ];
   y = (y & 0x07);
   if (y) {
     ASSERT_IN_DISPLAY(p);
@@ -738,13 +738,13 @@ void lcdDrawVerticalLine(coord_t x, scoord_t y, scoord_t h, uint8_t pat, LcdFlag
     lcdMaskPoint(p, msk & pat, att);
     p += LCD_W;
   }
-  while (h>=8) {
+  while (h >= 8) {
     ASSERT_IN_DISPLAY(p);
     lcdMaskPoint(p, pat, att);
     p += LCD_W;
     h -= 8;
   }
-  if (h>0) {
+  if (h > 0) {
     ASSERT_IN_DISPLAY(p);
     lcdMaskPoint(p, (BITMASK(h)-1) & pat, att);
   }
@@ -1119,6 +1119,7 @@ void drawValueWithUnit(coord_t x, coord_t y, lcdint_t val, uint8_t unit, LcdFlag
 
 void drawGPSCoord(coord_t x, coord_t y, int32_t value, const char * direction, LcdFlags att, bool seconds=true)
 {
+  att &= ~RIGHT & ~BOLD;
   uint32_t absvalue = abs(value);
   lcdDrawNumber(x, y, absvalue / 1000000, att); // ddd
   lcdDrawChar(lcdLastPos, y, '@', att);
@@ -1174,7 +1175,7 @@ void drawDate(coord_t x, coord_t y, TelemetryItem & telemetryItem, LcdFlags att)
 void drawGPSPosition(coord_t x, coord_t y, int32_t longitude, int32_t latitude, LcdFlags flags)
 {
   if (flags & DBLSIZE) {
-    x -= (g_eeGeneral.gpsFormat == 0 ? 54 : 51);
+    x -= (g_eeGeneral.gpsFormat == 0 ? 62 : 61);
     flags &= ~0x0F00; // TODO constant
     drawGPSCoord(x, y, latitude, "NS", flags);
     drawGPSCoord(x, y+FH, longitude, "EW", flags);

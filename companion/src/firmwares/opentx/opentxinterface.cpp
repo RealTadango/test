@@ -86,8 +86,10 @@ const char * OpenTxEepromInterface::getName()
       return "OpenTX for ar9x board / 9X";
     case BOARD_FLAMENCO:
       return "OpenTX for Flamenco experimental";
-    case BOARD_HORUS:
+    case BOARD_X12S:
       return "OpenTX for FrSky Horus";
+    case BOARD_X10:
+      return "OpenTX for FrSky X10";
     default:
       return "OpenTX for an unknown board";
   }
@@ -96,7 +98,8 @@ const char * OpenTxEepromInterface::getName()
 uint32_t OpenTxEepromInterface::getFourCC()
 {
   switch (board) {
-    case BOARD_HORUS:
+    case BOARD_X12S:
+    case BOARD_X10:
       return 0x3478746F;
     case BOARD_TARANIS_X7:
       return 0x3678746F;
@@ -196,29 +199,6 @@ bool OpenTxEepromInterface::loadFromByteArray(T & dest, const QByteArray & data)
   uint8_t version = data[4];
   QByteArray raw = data.right(data.size() - 8);
   return loadFromByteArray<T, M>(dest, raw, version);
-}
-
-template<class T>
-bool
-OpenTxEepromInterface::saveRadioSettings(GeneralSettings &settings, Board::Type board, uint8_t version, uint32_t variant)
-{
-  T open9xSettings(settings, board, version, variant);
-  // open9xSettings.Dump();
-  QByteArray eeprom;
-  open9xSettings.Export(eeprom);
-  int sz = efile->writeRlc2(FILE_GENERAL, FILE_TYP_GENERAL, (const uint8_t *) eeprom.constData(), eeprom.size());
-  return (sz == eeprom.size());
-}
-
-template<class T>
-bool OpenTxEepromInterface::saveModel(unsigned int index, ModelData &model, uint8_t version, uint32_t variant)
-{
-  T open9xModel(model, board, version, variant);
-  // open9xModel.Dump();
-  QByteArray eeprom;
-  open9xModel.Export(eeprom);
-  int sz = efile->writeRlc2(FILE_MODEL(index), FILE_TYP_MODEL, (const uint8_t *) eeprom.constData(), eeprom.size());
-  return (sz == eeprom.size());
 }
 
 unsigned long OpenTxEepromInterface::load(RadioData &radioData, const uint8_t * eeprom, int size)
@@ -321,9 +301,30 @@ uint8_t OpenTxEepromInterface::getLastDataVersion(Board::Type board)
   }
 }
 
+void OpenTxEepromInterface::showErrors(const QString & title, const QStringList & errors)
+{
+  QString msg;
+  if (errors.empty()) {
+    msg = QObject::tr("Unknown error");
+  }
+  else {
+    int noErrorsToDisplay = std::min((int)errors.size(), 10);
+    for (int n = 0; n < noErrorsToDisplay; n++) {
+      msg += " -" + errors.at(n) + "\n";
+    }
+    if (noErrorsToDisplay < errors.size()) {
+      msg += QObject::tr(" ... plus %1 errors").arg(errors.size() - noErrorsToDisplay) + "\n" + msg;
+    }
+  }
+
+  QMessageBox::warning(NULL,
+                       QObject::tr("Error"),
+                       title + "\n" + msg);
+}
+
 int OpenTxEepromInterface::save(uint8_t * eeprom, const RadioData & radioData, uint8_t version, uint32_t variant)
 {
-  EEPROMWarnings.clear();
+  // TODO QMessageBox::warning should not be called here
 
   if (version == 0) {
     version = getLastDataVersion(board);
@@ -343,34 +344,28 @@ int OpenTxEepromInterface::save(uint8_t * eeprom, const RadioData & radioData, u
     variant |= TARANIS_X7_VARIANT;
   }
 
-  int result = saveRadioSettings<OpenTxGeneralData>((GeneralSettings &)radioData.generalSettings, board, version, variant);
-  if (!result) {
+  OpenTxGeneralData generator((GeneralSettings &)radioData.generalSettings, board, version, variant);
+  // generator.Dump();
+  QByteArray data;
+  generator.Export(data);
+  int sz = efile->writeRlc2(FILE_GENERAL, FILE_TYP_GENERAL, (const uint8_t *)data.constData(), data.size());
+  if (sz == 0 || generator.errors().count() > 0) {
+    showErrors(QObject::tr("Cannot write radio settings"), generator.errors());
     return 0;
   }
 
   for (int i = 0; i < getCurrentFirmware()->getCapability(Models); i++) {
     if (!radioData.models[i].isEmpty()) {
-      result = saveModel<OpenTxModelData>(i, (ModelData &)radioData.models[i], version, variant);
-      if (!result) {
+      OpenTxModelData generator((ModelData &)radioData.models[i], board, version, variant);
+      // generator.Dump();
+      QByteArray data;
+      generator.Export(data);
+      int sz = efile->writeRlc2(FILE_MODEL(i), FILE_TYP_MODEL, (const uint8_t *)data.constData(), data.size());
+      if (sz == 0 || generator.errors().count() > 0) {
+        showErrors(QObject::tr("Cannot write model %1").arg(radioData.models[i].name), generator.errors());
         return 0;
       }
     }
-  }
-
-  if (!EEPROMWarnings.empty()) {
-    QString msg;
-    int noErrorsToDisplay = std::min((int) EEPROMWarnings.size(), 10);
-    for (int n = 0; n < noErrorsToDisplay; n++) {
-      msg += "-" + EEPROMWarnings.front() + "\n";
-      EEPROMWarnings.pop_front();
-    }
-    if (!EEPROMWarnings.empty()) {
-      msg = QObject::tr("(displaying only first 10 warnings)") + "\n" + msg;
-    }
-    EEPROMWarnings.clear();
-    QMessageBox::warning(NULL,
-                         QObject::tr("Warning"),
-                         QObject::tr("EEPROM saved with these warnings:") + "\n" + msg);
   }
 
   return size;
@@ -433,7 +428,7 @@ Firmware * OpenTxFirmware::getFirmwareVariant(const QString &id)
   }
 }
 
-int OpenTxFirmware::getCapability(Capability capability)
+int OpenTxFirmware::getCapability(::Capability capability)
 {
   switch (capability) {
     case Models:
@@ -517,45 +512,9 @@ int OpenTxFirmware::getCapability(Capability capability)
         return 0;
     case PermTimers:
       return (IS_2560(board) || IS_ARM(board));
-    case Pots:
-      if (IS_HORUS(board))
-        return 3;
-      else if (IS_TARANIS_X7(board))
-        return 2;
-      else if (IS_TARANIS_X9E(board))
-        return 4;
-      else if (IS_TARANIS(board))
-        return 3;
-      else
-        return 3;
-    case Sliders:
-      if (IS_HORUS(board))
-        return 4;
-      else if (IS_TARANIS_X7(board))
-        return 0;
-      else if (IS_TARANIS_X9E(board))
-        return 4;
-      else if (IS_TARANIS(board))
-        return 2;
-      else
-        return 0;
-    case Switches:
-      if (IS_TARANIS_X9E(board))
-        return 18;
-      else if (IS_TARANIS_X7(board))
-        return 6;
-      else if (IS_HORUS_OR_TARANIS(board))
-        return 8;
-      else
-        return 7;
-    case FactoryInstalledSwitches:
-      if (IS_TARANIS_X9E(board))
-        return 8;
-      else
-        return getCapability(Switches);
     case SwitchesPositions:
       if (IS_HORUS_OR_TARANIS(board))
-        return getCapability(Switches) * 3;
+        return getBoardCapability(board, Board::Switches) * 3;
       else
         return 9;
     case NumTrimSwitches:
@@ -718,7 +677,7 @@ int OpenTxFirmware::getCapability(Capability capability)
     case GlobalFunctions:
       return IS_ARM(board) ? 64 : 0;
     case VirtualInputs:
-      return IS_ARM(board) ? 64 : 0;
+      return IS_ARM(board) ? 32 : 0;
     case InputsLength:
       return HAS_LARGE_LCD(board) ? 4 : 3;
     case TrainerInputs:
@@ -1263,15 +1222,25 @@ void registerOpenTxFirmwares()
 
   /* FrSky X7 board */
   firmware = new OpenTxFirmware("opentx-x7", QObject::tr("FrSky Taranis X7"), BOARD_TARANIS_X7);
-  addOpenTxTaranisOptions(firmware);
+  // No mixersmon for now
+  addOpenTxFrskyOptions(firmware);
+  firmware->addOption("internalppm", QObject::tr("Support for PPM internal module hack"));
+  firmware->addOption("sqt5font", QObject::tr("Use alternative SQT5 font"));
   registerOpenTxFirmware(firmware);
 
   /* FrSky Horus board */
-  firmware = new OpenTxFirmware("opentx-horus", QObject::tr("FrSky Horus"), BOARD_HORUS);
+  firmware = new OpenTxFirmware("opentx-x12s", QObject::tr("FrSky Horus"), BOARD_X12S);
   addOpenTxFrskyOptions(firmware);
   firmware->addOption("pcbdev", QObject::tr("Use ONLY with first DEV pcb version"));
   registerOpenTxFirmware(firmware);
+  
 
+  /* FrSky X10 board */
+/* Disabled for now
+  firmware = new OpenTxFirmware("opentx-x10", QObject::tr("FrSky X10"), BOARD_X10);
+  addOpenTxFrskyOptions(firmware);
+  registerOpenTxFirmware(firmware);
+*/
   /* 9XR-Pro */
   firmware = new OpenTxFirmware("opentx-9xrpro", QObject::tr("Turnigy 9XR-PRO"), BOARD_9XRPRO);
   firmware->addOption("heli", QObject::tr("Enable HELI menu and cyclic mix support"));

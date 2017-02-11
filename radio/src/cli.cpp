@@ -418,9 +418,15 @@ int cliMemoryInfo(const char ** argv)
 
 #if defined(LUA)
   serialPrint("\nLua:");
-  serialPrint("\tScripts %d", luaGetMemUsed(lsScripts));
-#if defined(PCBHORUS)
-  serialPrint("\tWidgets %d", luaGetMemUsed(lsWidgets));
+  uint32_t s = luaGetMemUsed(lsScripts);
+  serialPrint("\tScripts %u", s);
+#if defined(COLORLCD)
+  uint32_t w = luaGetMemUsed(lsWidgets);
+  uint32_t e = luaExtraMemoryUsage;
+  serialPrint("\tWidgets %u", w);
+  serialPrint("\tExtra   %u", e);
+  serialPrint("------------");
+  serialPrint("\tTotal   %u", s + w + e);
 #endif
 #endif
   return 0;
@@ -681,7 +687,7 @@ int cliDisplay(const char ** argv)
     }
   }
   else if (!strcmp(argv[1], "adc")) {
-    for (int i=0; i<NUMBER_ANALOG; i++) {
+    for (int i=0; i<NUM_ANALOGS; i++) {
       serialPrint("adc[%d] = %04X", i, (int)adcValues[i]);
     }
   }
@@ -859,7 +865,7 @@ int cliRepeat(const char ** argv)
 int cliShowJitter(const char ** argv)
 {
   serialPrint(  "#   anaIn   rawJ   avgJ");
-  for (int i=0; i<NUMBER_ANALOG; i++) {
+  for (int i=0; i<NUM_ANALOGS; i++) {
     serialPrint("A%02d %04X %04X %3d %3d", i, getAnalogValue(i), anaIn(i), rawJitter[i].get(), avgJitter[i].get());
     if (IS_POT_MULTIPOS(i)) {
       StepsCalibData * calib = (StepsCalibData *) &g_eeGeneral.calib[i];
@@ -897,7 +903,7 @@ int cliGps(const char ** argv)
 }
 #endif
 
-#if defined(PCBX9E) || defined(PCBHORUS)
+#if defined(BLUETOOTH)
 int cliBlueTooth(const char ** argv)
 {
   int baudrate = 0;
@@ -964,7 +970,7 @@ const CliCommand cliCommands[] = {
 #if defined(INTERNAL_GPS)
   { "gps", cliGps, "<baudrate>|$<command>|trace" },
 #endif
-#if defined(PCBX9E) || defined(PCBHORUS)
+#if defined(BLUETOOTH)
   { "bt", cliBlueTooth, "<baudrate>|$<command>|read" },
 #endif
   { NULL, NULL, NULL }  /* sentinel */
