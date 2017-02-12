@@ -1,6 +1,7 @@
 option(DISK_CACHE "Enable SD card disk cache" YES)
 option(BLUETOOTH_CLI_PASSTHROUGH "Enable direct communicaton with Bluetooth module from CLI" NO)
 option(PWR_BUTTON_DISABLED "Disable the Power Button (for debugging with JTAG)" NO)
+option(NO_UNEXPECTED_SHUTDOWN "Disable the Unexpected Shutdown screen (for debugging with JTAG)" NO)
 
 set(CPU_TYPE STM32F4)
 set(HSE_VALUE 12000000)
@@ -23,6 +24,10 @@ endif()
 
 if(PWR_BUTTON_DISABLED)
   add_definitions(-DPWR_BUTTON_DISABLED)
+endif()
+
+if(NO_UNEXPECTED_SHUTDOWN)
+  add_definitions(-DNO_UNEXPECTED_SHUTDOWN)
 endif()
 
 if (PCB STREQUAL X10)
@@ -136,8 +141,11 @@ set(STM32LIB_SRC
   STM32F4xx_StdPeriph_Driver/src/stm32f4xx_tim.c
   STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma2d.c
   )
-add_custom_target(datacopy
-  WORKING_DIRECTORY ${RADIO_DIRECTORY}/src
-  COMMAND python ${RADIO_DIRECTORY}/util/generate_datacopy.py datastructs.h -DPCBHORUS -DCPUARM -DCOLORLCD -DCPUARM -DBACKUP > storage/datacopy.cpp
-  DEPENDS ${RADIO_DIRECTORY}/src/datastructs.h ${RADIO_DIRECTORY}/util/generate_datacopy.py
-)
+
+if(PYTHONINTERP_FOUND)
+  add_custom_target(datacopy
+    WORKING_DIRECTORY ${RADIO_DIRECTORY}/src
+    COMMAND ${PYTHON_EXECUTABLE} ${RADIO_DIRECTORY}/util/generate_datacopy.py datastructs.h -DPCBHORUS -DCPUARM -DCOLORLCD -DCPUARM -DBACKUP > storage/datacopy.cpp
+    DEPENDS ${RADIO_DIRECTORY}/src/datastructs.h ${RADIO_DIRECTORY}/util/generate_datacopy.py
+  )
+endif()
