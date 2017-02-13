@@ -147,7 +147,13 @@ bool isSourceAvailable(int source)
   if (source>=MIXSRC_FIRST_POT && source<=MIXSRC_LAST_POT) {
     return IS_POT_SLIDER_AVAILABLE(POT1+source-MIXSRC_FIRST_POT);
   }
-  
+
+#if defined(PCBSKY9X) && defined(REVX)
+  if (source == MIXSRC_REa) {
+    return false;
+  }
+#endif
+
 #if defined(PCBX10)
   if ((source>=MIXSRC_S3 && source<=MIXSRC_S4) || (source>=MIXSRC_MOUSE1 && source<=MIXSRC_MOUSE2))
     return false;
@@ -275,7 +281,7 @@ bool isSwitchAvailable(int swtch, SwitchContext context)
 
 #if defined(PCBSKY9X)
   if (swtch >= SWSRC_FIRST_SWITCH && swtch <= SWSRC_LAST_SWITCH) {
-    (void)negative;
+    UNUSED(negative);
     return true;
   }
 #else
@@ -307,6 +313,12 @@ bool isSwitchAvailable(int swtch, SwitchContext context)
     else {
       return false;
     }
+  }
+#endif
+
+#if defined(PCBSKY9X) && defined(REVX)
+  if (swtch == SWSRC_REa) {
+    return false;
   }
 #endif
 

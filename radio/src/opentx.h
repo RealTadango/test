@@ -324,10 +324,13 @@ void memswap(void * a, void * b, uint8_t size);
   #define IS_MULTIPOS_CALIBRATED(cal)  (false)
 #endif
 
-#if defined(PCBFLAMENCO) || defined(PCBHORUS) || defined(PCBX9E) || defined(PCBX7)
-  #define PWR_BUTTON_DELAY
-  #define PWR_PRESS_SHUTDOWN           150 // 1,5s
+#if defined(PWR_BUTTON_PRESS)
+  #define pwrOffPressed()              pwrPressed()
+#else
+  #define pwrOffPressed()              (!pwrPressed())
 #endif
+
+#define PWR_PRESS_SHUTDOWN_DELAY       300 // 3s
 
 #define GET_LOWRES_POT_POSITION(i)     (getValue(MIXSRC_FIRST_POT+(i)) >> 4)
 #define SAVE_POT_POSITION(i)           g_model.potsWarnPosition[i] = GET_LOWRES_POT_POSITION(i)
@@ -512,7 +515,7 @@ extern uint8_t channel_order(uint8_t x);
 #endif
 
 #if defined(PCBHORUS)
-  #define SPLASH_TIMEOUT  100 /* 1s */
+  #define SPLASH_TIMEOUT  300 /* 3s */
 #elif defined(FSPLASH)
   #define SPLASH_TIMEOUT  (g_eeGeneral.splashMode == 0 ? 60000/*infinite=10mn*/ : ((4*100) * (g_eeGeneral.splashMode & 0x03)))
 #elif defined(PCBTARANIS) || defined(PCBFLAMENCO)
@@ -865,6 +868,10 @@ void checkBacklight();
 void doLoopCommonActions();
 
 #define BITMASK(bit) (1<<(bit))
+
+#if !defined(UNUSED)
+#define UNUSED(x)	((void)(x))	/* to avoid warnings */
+#endif
 
 /// returns the number of elements of an array
 #define DIM(arr) (sizeof((arr))/sizeof((arr)[0]))
