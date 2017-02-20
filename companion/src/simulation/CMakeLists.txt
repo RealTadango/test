@@ -1,13 +1,16 @@
 set(simulation_SRCS
   debugoutput.cpp
-  simulatordialog.cpp
-  simulatorinterface.cpp
+  radiooutputswidget.cpp
   simulateduiwidget.cpp
   simulateduiwidget9X.cpp
   simulateduiwidgetX7.cpp
   simulateduiwidgetX9.cpp
+  simulateduiwidgetX9E.cpp
   simulateduiwidgetX12.cpp
+  simulatorinterface.cpp
+  simulatormainwindow.cpp
   simulatorstartupdialog.cpp
+  simulatorwidget.cpp
   telemetrysimu.cpp
   trainersimu.cpp
   widgets/radiowidget.cpp
@@ -16,23 +19,28 @@ set(simulation_SRCS
 
 set(simulation_UIS
   debugoutput.ui
-  simulatordialog.ui
+  radiooutputswidget.ui
   simulateduiwidget9X.ui
   simulateduiwidgetX7.ui
   simulateduiwidgetX9.ui
+  simulateduiwidgetX9E.ui
   simulateduiwidgetX12.ui
+  simulatormainwindow.ui
   simulatorstartupdialog.ui
+  simulatorwidget.ui
   telemetrysimu.ui
   trainersimu.ui
 )
 
 set(simulation_HDRS
   debugoutput.h
+  radiooutputswidget.h
   radiouiaction.h
   simulateduiwidget.h
   # simulator.h
-  simulatordialog.h
+  simulatormainwindow.h
   simulatorstartupdialog.h
+  simulatorwidget.h
   telemetrysimu.h
   trainersimu.h
   widgets/buttonswidget.h
@@ -77,4 +85,4 @@ qt5_wrap_ui(simulation_SRCS ${simulation_UIS})
 qt5_wrap_cpp(simulation_SRCS ${simulation_HDRS})
 
 add_library(simulation ${simulation_SRCS} ${simulation_HDRS})
-qt5_use_modules(simulation Widgets Xml)
+qt5_use_modules(simulation Core Widgets Svg)

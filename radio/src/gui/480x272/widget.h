@@ -45,7 +45,7 @@ class Widget
     {
     }
 
-    virtual void update() const
+    virtual void update()
     {
     }
 
@@ -55,6 +55,11 @@ class Widget
     }
 
     inline const ZoneOption * getOptions() const;
+
+    virtual const char * getErrorMessage() const
+    {
+      return NULL;
+    }
 
     inline ZoneOptionValue * getOptionValue(unsigned int index) const
     {

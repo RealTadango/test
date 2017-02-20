@@ -51,10 +51,6 @@ enum Capability {
   VoicesMaxLength,
   MultiLangVoice,
   ModelImage,
-  Pots,
-  Sliders,
-  Switches,
-  FactoryInstalledSwitches,
   SwitchesPositions,
   NumTrimSwitches,
   CustomFunctions,
@@ -183,8 +179,6 @@ class EEPROMInterface
     EEPROMInterface();
 
 };
-
-extern std::list<QString> EEPROMWarnings;
 
 /* EEPROM string conversion functions */
 void setEEPROMString(char *dst, const char *src, int size);

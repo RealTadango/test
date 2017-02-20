@@ -520,7 +520,7 @@ int8_t getMovedSource(GET_MOVED_SOURCE_PARAMS)
   static int16_t sourcesStates[NUM_STICKS+NUM_POTS+NUM_SLIDERS+NUM_MOUSE_ANALOGS];
   if (result == 0) {
     for (uint8_t i=0; i<NUM_STICKS+NUM_POTS+NUM_SLIDERS; i++) {
-      if (abs(calibratedStick[i] - sourcesStates[i]) > 512) {
+      if (abs(calibratedAnalogs[i] - sourcesStates[i]) > 512) {
         result = MIXSRC_Rud+i;
         break;
       }
@@ -536,7 +536,7 @@ int8_t getMovedSource(GET_MOVED_SOURCE_PARAMS)
 #if defined(VIRTUAL_INPUTS)
     memcpy(inputsStates, anas, sizeof(inputsStates));
 #endif
-    memcpy(sourcesStates, calibratedStick, sizeof(sourcesStates));
+    memcpy(sourcesStates, calibratedAnalogs, sizeof(sourcesStates));
   }
 
   s_move_last_time = get_tmr10ms();
@@ -903,7 +903,7 @@ bool readonlyUnlocked()
 #if defined(SPLASH)
 void doSplash()
 {
-#if defined(PWR_BUTTON_DELAY)
+#if defined(PWR_BUTTON_PRESS)
   bool refresh = false;
 #endif
 
@@ -948,7 +948,7 @@ void doSplash()
       }
 #endif
 
-#if defined(PWR_BUTTON_DELAY)
+#if defined(PWR_BUTTON_PRESS)
       uint32_t pwr_check = pwrCheck();
       if (pwr_check == e_power_off) {
         break;
@@ -1116,15 +1116,15 @@ void checkTHR()
   // no other information available at the moment, and good enough to my option (otherwise too much exceptions...)
 
 #if defined(MODULE_ALWAYS_SEND_PULSES)
-  int16_t v = calibratedStick[thrchn];
+  int16_t v = calibratedAnalogs[thrchn];
   if (v<=THRCHK_DEADBAND-1024 || g_model.disableThrottleWarning || pwrCheck()==e_power_off || keyDown()) {
     startupWarningState = STARTUP_WARNING_THROTTLE+1;
   }
   else {
-    calibratedStick[thrchn] = -1024;
+    calibratedAnalogs[thrchn] = -1024;
 #if !defined(VIRTUAL_INPUTS)
     if (thrchn < NUM_STICKS) {
-      rawAnas[thrchn] = anas[thrchn] = calibratedStick[thrchn];
+      rawAnas[thrchn] = anas[thrchn] = calibratedAnalogs[thrchn];
     }
 #endif
     RAISE_ALERT(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
@@ -1138,7 +1138,7 @@ void checkTHR()
 
   evalInputs(e_perout_mode_notrainer); // let do evalInputs do the job
 
-  int16_t v = calibratedStick[thrchn];
+  int16_t v = calibratedAnalogs[thrchn];
   if (v <= THRCHK_DEADBAND-1024) {
     return; // prevent warning if throttle input OK
   }
@@ -1147,7 +1147,7 @@ void checkTHR()
   LED_ERROR_BEGIN();
   RAISE_ALERT(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
 
-#if defined(PWR_BUTTON_DELAY)
+#if defined(PWR_BUTTON_PRESS)
   bool refresh = false;
 #endif
 
@@ -1157,9 +1157,9 @@ void checkTHR()
 
     evalInputs(e_perout_mode_notrainer); // let do evalInputs do the job
 
-    v = calibratedStick[thrchn];
+    v = calibratedAnalogs[thrchn];
 
-#if defined(PWR_BUTTON_DELAY)
+#if defined(PWR_BUTTON_PRESS)
     uint32_t pwr_check = pwrCheck();
     if (pwr_check == e_power_off) {
       break;
@@ -1207,13 +1207,15 @@ void checkAlarm() // added by Gohst
   }
 }
 
-void alert(const pm_char * t, const pm_char * s ALERT_SOUND_ARG)
+void alert(const pm_char * title, const pm_char * msg ALERT_SOUND_ARG)
 {
   LED_ERROR_BEGIN();
 
-  RAISE_ALERT(t, s, STR_PRESSANYKEY, sound);
+  TRACE("ALERT %s: %s", title, msg);
 
-#if defined(PWR_BUTTON_DELAY)
+  RAISE_ALERT(title, msg, STR_PRESSANYKEY, sound);
+
+#if defined(PWR_BUTTON_PRESS)
   bool refresh = false;
 #endif
 
@@ -1229,7 +1231,7 @@ void alert(const pm_char * t, const pm_char * s ALERT_SOUND_ARG)
 
     wdt_reset();
 
-#if defined(PWR_BUTTON_DELAY)
+#if defined(PWR_BUTTON_PRESS)
     uint32_t pwr_check = pwrCheck();
     if (pwr_check == e_power_off) {
       boardOff();
@@ -1238,7 +1240,7 @@ void alert(const pm_char * t, const pm_char * s ALERT_SOUND_ARG)
       refresh = true;
     }
     else if (pwr_check == e_power_on && refresh) {
-      RAISE_ALERT(t, s, STR_PRESSANYKEY, AU_NONE);
+      RAISE_ALERT(title, msg, STR_PRESSANYKEY, AU_NONE);
       refresh = false;
     }
 #else
@@ -1371,7 +1373,7 @@ uint8_t checkTrim(event_t event)
 }
 
 #if !defined(SIMU)
-uint16_t s_anaFilt[NUMBER_ANALOG];
+uint16_t s_anaFilt[NUM_ANALOGS];
 #endif
 
 #if defined(SIMU)
@@ -1387,8 +1389,8 @@ uint16_t BandGap;
 #endif
 
 #if defined(JITTER_MEASURE)
-JitterMeter<uint16_t> rawJitter[NUMBER_ANALOG];
-JitterMeter<uint16_t> avgJitter[NUMBER_ANALOG];
+JitterMeter<uint16_t> rawJitter[NUM_ANALOGS];
+JitterMeter<uint16_t> avgJitter[NUM_ANALOGS];
 tmr10ms_t jitterResetTime = 0;
 #endif
 
@@ -1440,7 +1442,7 @@ void getADC()
 #if defined(JITTER_MEASURE)
   if (JITTER_MEASURE_ACTIVE() && jitterResetTime < get_tmr10ms()) {
     // reset jitter measurement every second
-    for (uint32_t x=0; x<NUMBER_ANALOG; x++) {
+    for (uint32_t x=0; x<NUM_ANALOGS; x++) {
       rawJitter[x].reset();
       avgJitter[x].reset();
     }
@@ -1452,7 +1454,7 @@ void getADC()
   adcRead();
   DEBUG_TIMER_STOP(debugTimerAdcRead);
 
-  for (uint8_t x=0; x<NUMBER_ANALOG; x++) {
+  for (uint8_t x=0; x<NUM_ANALOGS; x++) {
     uint16_t v = getAnalogValue(x) >> (1 - ANALOG_SCALE);
 
 #if defined(VIRTUAL_INPUTS)
@@ -1706,9 +1708,9 @@ void doMixerCalculations()
     }
     else {
 #if defined(VIRTUAL_INPUTS)
-      val = RESX + calibratedStick[g_model.thrTraceSrc == 0 ? THR_STICK : g_model.thrTraceSrc+NUM_STICKS-1];
+      val = RESX + calibratedAnalogs[g_model.thrTraceSrc == 0 ? THR_STICK : g_model.thrTraceSrc+NUM_STICKS-1];
 #else
-      val = RESX + (g_model.thrTraceSrc == 0 ? rawAnas[THR_STICK] : calibratedStick[g_model.thrTraceSrc+NUM_STICKS-1]);
+      val = RESX + (g_model.thrTraceSrc == 0 ? rawAnas[THR_STICK] : calibratedAnalogs[g_model.thrTraceSrc+NUM_STICKS-1]);
 #endif
     }
 
@@ -1822,7 +1824,7 @@ uint8_t calcStickScroll( uint8_t index )
   if ( ( g_eeGeneral.stickMode & 1 ) == 0 )
     index ^= 3;
 
-  value = calibratedStick[index] / 128;
+  value = calibratedAnalogs[index] / 128;
   direction = value > 0 ? 0x80 : 0;
   if (value < 0)
     value = -value;                        // (abs)
@@ -2440,7 +2442,7 @@ void opentxInit(OPENTX_INIT_ARGS)
 #endif
 
 #if defined(EEPROM)
-  storageReadAll();
+  storageReadRadioSettings();
 #endif
 
   // Radios handle UNEXPECTED_SHUTDOWN() differently:
@@ -2459,7 +2461,11 @@ void opentxInit(OPENTX_INIT_ARGS)
   if (!unexpectedShutdown) {
     sdInit();
     logsInit();
- }
+  }
+#endif
+
+#if defined(EEPROM)
+  storageReadCurrentModel();
 #endif
 
 #if defined(PCBHORUS)
@@ -2490,7 +2496,7 @@ void opentxInit(OPENTX_INIT_ARGS)
 #endif  // #if !defined(EEPROM)
 
 #if defined(SERIAL2)
-  serial2Init(g_eeGeneral.serial2Mode, MODEL_TELEMETRY_PROTOCOL());
+  serial2Init(g_eeGeneral.serial2Mode, modelTelemetryProtocol());
 #endif
 
 #if defined(PCBTARANIS)
@@ -2522,7 +2528,7 @@ void opentxInit(OPENTX_INIT_ARGS)
   setSticksGain(g_eeGeneral.sticksGain);
 #endif
 
-#if defined(BLUETOOTH)
+#if defined(PCBSKY9X) && defined(BLUETOOTH)
   btInit();
 #endif
 
@@ -2531,7 +2537,10 @@ void opentxInit(OPENTX_INIT_ARGS)
   loadFontCache();
 #endif
 
-  if (g_eeGeneral.backlightMode != e_backlight_mode_off) backlightOn(); // on Tx start turn the light on
+  if (g_eeGeneral.backlightMode != e_backlight_mode_off) {
+    // on Tx start turn the light on
+    backlightOn();
+  }
 
   if (!unexpectedShutdown) {
     opentxStart();
@@ -2695,8 +2704,7 @@ int main()
 #endif
 }
 
-#if defined(PWR_BUTTON_DELAY)
-
+#if defined(PWR_BUTTON_PRESS)
 uint32_t pwr_press_time = 0;
 
 uint32_t pwrPressedDuration()
@@ -2734,7 +2742,7 @@ uint32_t pwrCheck()
       if (g_eeGeneral.backlightMode != e_backlight_mode_off) {
         BACKLIGHT_ENABLE();
       }
-      if (get_tmr10ms() - pwr_press_time > PWR_PRESS_SHUTDOWN) {
+      if (get_tmr10ms() - pwr_press_time > PWR_PRESS_SHUTDOWN_DELAY) {
 #if defined(SHUTDOWN_CONFIRMATION)
         while (1) {
           lcdRefreshWait();
@@ -2771,5 +2779,23 @@ uint32_t pwrCheck()
   }
 
   return e_power_on;
+}
+#elif defined(CPUARM)
+uint32_t pwrCheck()
+{
+#if defined(SOFT_PWR_CTRL)
+  if (pwrPressed())
+    return e_power_on;
+#endif
+
+  if (usbPlugged())
+    return e_power_usb;
+
+#if defined(TRAINER_PWR)
+  if (TRAINER_CONNECTED())
+    return e_power_trainer;
+#endif
+
+  return e_power_off;
 }
 #endif

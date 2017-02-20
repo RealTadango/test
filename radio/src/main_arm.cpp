@@ -138,6 +138,9 @@ void periodicTick_1s()
 void periodicTick_10s()
 {
   checkBatteryAlarms();
+#if defined(LUA)
+  checkLuaMemoryUsage();
+#endif
 }
 
 void periodicTick()
@@ -463,7 +466,7 @@ void perMain()
   toplcdRefreshEnd();
 #endif
 
-#if (defined(PCBX9E) || defined(PCBHORUS)) && !defined(SIMU)
+#if defined(BLUETOOTH) && !defined(SIMU)
   bluetoothWakeup();
 #endif
 

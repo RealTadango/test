@@ -339,7 +339,7 @@ void logsWrite()
 #endif
 
       for (uint8_t i=0; i<NUM_STICKS+NUM_POTS+NUM_SLIDERS; i++) {
-        f_printf(&g_oLogFile, "%d,", calibratedStick[i]);
+        f_printf(&g_oLogFile, "%d,", calibratedAnalogs[i]);
       }
 
 #if defined(PCBFLAMENCO)
@@ -349,19 +349,25 @@ void logsWrite()
           // GET_3POS_STATE(SC),
           GET_2POS_STATE(SE),
           GET_3POS_STATE(SF));
+#elif defined(PCBX7)
+      f_printf(&g_oLogFile, "%d,%d,%d,%d,%d,%d,0x%08X%08X,",
+          GET_3POS_STATE(SA),
+          GET_3POS_STATE(SB),
+          GET_3POS_STATE(SC),
+          GET_3POS_STATE(SD),
+          GET_2POS_STATE(SF),
+          GET_2POS_STATE(SH),
+          getLogicalSwitchesStates(32),
+          getLogicalSwitchesStates(0));
 #elif defined(PCBTARANIS) || defined(PCBHORUS)
       f_printf(&g_oLogFile, "%d,%d,%d,%d,%d,%d,%d,%d,0x%08X%08X,",
           GET_3POS_STATE(SA),
           GET_3POS_STATE(SB),
           GET_3POS_STATE(SC),
           GET_3POS_STATE(SD),
-#if !defined(PCBX7)
           GET_3POS_STATE(SE),
-#endif
           GET_2POS_STATE(SF),
-#if !defined(PCBX7)
           GET_3POS_STATE(SG),
-#endif
           GET_2POS_STATE(SH),
           getLogicalSwitchesStates(32),
           getLogicalSwitchesStates(0));

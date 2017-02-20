@@ -39,7 +39,8 @@ namespace Board {
     BOARD_TARANIS_X9DP,
     BOARD_TARANIS_X9E,
     BOARD_FLAMENCO,
-    BOARD_HORUS,
+    BOARD_X12S,
+    BOARD_X10,
     BOARD_UNKNOWN = -1
   };
 
@@ -80,6 +81,13 @@ namespace Board {
       unsigned int index;
       unsigned int position;
   };
+
+  enum Capability {
+    Pots,
+    Sliders,
+    Switches,
+    FactoryInstalledSwitches
+  };
 }
 
 // TODO remove all those constants
@@ -104,6 +112,8 @@ namespace Board {
 int getEEpromSize(Board::Type board);
 Board::SwitchInfo getSwitchInfo(Board::Type board, unsigned index);
 
+int getBoardCapability(Board::Type board, Board::Capability capability);
+
 #define IS_9X(board)                   (board==Board::BOARD_STOCK || board==Board::BOARD_M128)
 #define IS_STOCK(board)                (board==Board::BOARD_STOCK)
 #define IS_2560(board)                 (board==Board::BOARD_GRUVIN9X || board==Board::BOARD_MEGA2560)
@@ -115,7 +125,9 @@ Board::SwitchInfo getSwitchInfo(Board::Type board, unsigned index);
 #define IS_TARANIS_PLUS(board)         (board==Board::BOARD_TARANIS_X9DP || board==Board::BOARD_TARANIS_X9E)
 #define IS_TARANIS_X9E(board)          (board==Board::BOARD_TARANIS_X9E)
 #define IS_TARANIS(board)              (IS_TARANIS_X9(board) || IS_TARANIS_X7(board))
-#define IS_HORUS(board)                (board==Board::BOARD_HORUS)
+#define IS_HORUS_X12S(board)           (board==Board::BOARD_X12S)
+#define IS_HORUS_X10(board)            (board==Board::BOARD_X10)
+#define IS_HORUS(board)                (IS_HORUS_X12S(board) || IS_HORUS_X10(board))
 #define IS_HORUS_OR_TARANIS(board)     (IS_HORUS(board) || IS_TARANIS(board))
 #define IS_FLAMENCO(board)             (board==Board::BOARD_FLAMENCO)
 #define IS_STM32(board)                (IS_TARANIS(board) || IS_HORUS(board) || IS_FLAMENCO(board))

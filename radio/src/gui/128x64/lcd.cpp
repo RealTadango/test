@@ -636,13 +636,13 @@ void lcdDrawLine(coord_t x1, coord_t y1, coord_t x2, coord_t y2, uint8_t pat, Lc
   if (dxabs >= dyabs) {
     /* the line is more horizontal than vertical */
     for (int i=0; i<=dxabs; i++) {
+      if ((1<<(px%8)) & pat) {
+        lcdDrawPoint(px, py, att);
+      }
       y += dyabs;
       if (y>=dxabs) {
         y -= dxabs;
         py += sdy;
-      }
-      if ((1<<(px%8)) & pat) {
-        lcdDrawPoint(px, py, att);
       }
       px += sdx;
     }
@@ -650,13 +650,13 @@ void lcdDrawLine(coord_t x1, coord_t y1, coord_t x2, coord_t y2, uint8_t pat, Lc
   else {
     /* the line is more vertical than horizontal */
     for (int i=0; i<=dyabs; i++) {
+      if ((1<<(py%8)) & pat) {
+        lcdDrawPoint(px, py, att);
+      }
       x += dxabs;
       if (x >= dyabs) {
         x -= dyabs;
         px += sdx;
-      }
-      if ((1<<(py%8)) & pat) {
-        lcdDrawPoint(px, py, att);
       }
       py += sdy;
     }
@@ -727,7 +727,7 @@ void lcdDrawVerticalLine(coord_t x, scoord_t y, scoord_t h, uint8_t pat, LcdFlag
   if (pat==DOTTED && !(y%2))
     pat = ~pat;
 
-  uint8_t *p  = &displayBuf[ y / 8 * LCD_W + x ];
+  uint8_t * p  = &displayBuf[ y / 8 * LCD_W + x ];
   y = (y & 0x07);
   if (y) {
     ASSERT_IN_DISPLAY(p);
@@ -738,13 +738,13 @@ void lcdDrawVerticalLine(coord_t x, scoord_t y, scoord_t h, uint8_t pat, LcdFlag
     lcdMaskPoint(p, msk & pat, att);
     p += LCD_W;
   }
-  while (h>=8) {
+  while (h >= 8) {
     ASSERT_IN_DISPLAY(p);
     lcdMaskPoint(p, pat, att);
     p += LCD_W;
     h -= 8;
   }
-  if (h>0) {
+  if (h > 0) {
     ASSERT_IN_DISPLAY(p);
     lcdMaskPoint(p, (BITMASK(h)-1) & pat, att);
   }
@@ -1119,6 +1119,7 @@ void drawValueWithUnit(coord_t x, coord_t y, lcdint_t val, uint8_t unit, LcdFlag
 
 void drawGPSCoord(coord_t x, coord_t y, int32_t value, const char * direction, LcdFlags att, bool seconds=true)
 {
+  att &= ~RIGHT & ~BOLD;
   uint32_t absvalue = abs(value);
   lcdDrawNumber(x, y, absvalue / 1000000, att); // ddd
   lcdDrawChar(lcdLastPos, y, '@', att);
@@ -1174,7 +1175,7 @@ void drawDate(coord_t x, coord_t y, TelemetryItem & telemetryItem, LcdFlags att)
 void drawGPSPosition(coord_t x, coord_t y, int32_t longitude, int32_t latitude, LcdFlags flags)
 {
   if (flags & DBLSIZE) {
-    x -= (g_eeGeneral.gpsFormat == 0 ? 54 : 51);
+    x -= (g_eeGeneral.gpsFormat == 0 ? 62 : 61);
     flags &= ~0x0F00; // TODO constant
     drawGPSCoord(x, y, latitude, "NS", flags);
     drawGPSCoord(x, y+FH, longitude, "EW", flags);
@@ -1582,7 +1583,7 @@ void lcdDrawHorizontalLine(coord_t x, coord_t y, coord_t w, uint8_t pat, LcdFlag
 void drawShutdownAnimation(uint32_t index)
 {
   lcdClear();
-  int quarter = index / (PWR_PRESS_SHUTDOWN / 5);
+  int quarter = index / (PWR_PRESS_SHUTDOWN_DELAY / 5);
   for (int i=1; i<=4; i++) {
     if (quarter >= i) {
       lcdDrawFilledRect(LCD_W / 2 - 28 + 10 * i, LCD_H / 2 - 3, 6, 6, SOLID, 0);

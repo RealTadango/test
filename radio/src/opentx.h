@@ -259,18 +259,6 @@
   #define pgm_read_adr(x)              *(x)
   #define cli()
   #define sei()
-#else
-  #include <avr/io.h>
-  #include <avr/pgmspace.h>
-  #include "pgmtypes.h"
-
-  #include <avr/eeprom.h>
-  #include <avr/sleep.h>
-  #include <avr/interrupt.h>
-  #define F_CPU                        16000000UL  // 16 MHz
-  #include <util/delay.h>
-  #define pgm_read_adr(address_short)  pgm_read_word(address_short)
-  #include <avr/wdt.h>
 #endif
 
 #include "debug.h"
@@ -324,10 +312,13 @@ void memswap(void * a, void * b, uint8_t size);
   #define IS_MULTIPOS_CALIBRATED(cal)  (false)
 #endif
 
-#if defined(PCBFLAMENCO) || defined(PCBHORUS) || defined(PCBX9E) || defined(PCBX7)
-  #define PWR_BUTTON_DELAY
-  #define PWR_PRESS_SHUTDOWN           150 // 1,5s
+#if defined(PWR_BUTTON_PRESS)
+  #define pwrOffPressed()              pwrPressed()
+#else
+  #define pwrOffPressed()              (!pwrPressed())
 #endif
+
+#define PWR_PRESS_SHUTDOWN_DELAY       300 // 3s
 
 #define GET_LOWRES_POT_POSITION(i)     (getValue(MIXSRC_FIRST_POT+(i)) >> 4)
 #define SAVE_POT_POSITION(i)           g_model.potsWarnPosition[i] = GET_LOWRES_POT_POSITION(i)
@@ -499,26 +490,26 @@ extern const pm_uint8_t modn12x3[];
 
 extern uint8_t channel_order(uint8_t x);
 
-#define THRCHK_DEADBAND 16
+#define THRCHK_DEADBAND                16
 
 #if defined(COLORLCD)
-  #define SPLASH_NEEDED() (true)
+  #define SPLASH_NEEDED()              (false)
 #elif defined(PCBTARANIS)
-  #define SPLASH_NEEDED() (g_eeGeneral.splashMode != 3)
+  #define SPLASH_NEEDED()              (g_eeGeneral.splashMode != 3)
 #elif defined(CPUARM)
-  #define SPLASH_NEEDED() (g_model.moduleData[EXTERNAL_MODULE].type != MODULE_TYPE_DSM2 && !g_eeGeneral.splashMode)
+  #define SPLASH_NEEDED()              (g_model.moduleData[EXTERNAL_MODULE].type != MODULE_TYPE_DSM2 && !g_eeGeneral.splashMode)
 #else
-  #define SPLASH_NEEDED() (!IS_DSM2_PROTOCOL(g_model.protocol) && !g_eeGeneral.splashMode)
+  #define SPLASH_NEEDED()              (!IS_DSM2_PROTOCOL(g_model.protocol) && !g_eeGeneral.splashMode)
 #endif
 
 #if defined(PCBHORUS)
-  #define SPLASH_TIMEOUT  100 /* 1s */
+  #define SPLASH_TIMEOUT               0 /* we use the splash duration to load stuff from the SD */
 #elif defined(FSPLASH)
-  #define SPLASH_TIMEOUT  (g_eeGeneral.splashMode == 0 ? 60000/*infinite=10mn*/ : ((4*100) * (g_eeGeneral.splashMode & 0x03)))
+  #define SPLASH_TIMEOUT               (g_eeGeneral.splashMode == 0 ? 60000/*infinite=10mn*/ : ((4*100) * (g_eeGeneral.splashMode & 0x03)))
 #elif defined(PCBTARANIS) || defined(PCBFLAMENCO)
-  #define SPLASH_TIMEOUT  (g_eeGeneral.splashMode==-4 ? 1500 : (g_eeGeneral.splashMode<=0 ? (400-g_eeGeneral.splashMode*200) : (400-g_eeGeneral.splashMode*100)))
+  #define SPLASH_TIMEOUT               (g_eeGeneral.splashMode==-4 ? 1500 : (g_eeGeneral.splashMode<=0 ? (400-g_eeGeneral.splashMode*200) : (400-g_eeGeneral.splashMode*100)))
 #else
-  #define SPLASH_TIMEOUT  (4*100)  // 4 seconds
+  #define SPLASH_TIMEOUT               (4*100)  // 4 seconds
 #endif
 
 #if defined(ROTARY_ENCODERS)
@@ -866,6 +857,10 @@ void doLoopCommonActions();
 
 #define BITMASK(bit) (1<<(bit))
 
+#if !defined(UNUSED)
+#define UNUSED(x)	((void)(x))	/* to avoid warnings */
+#endif
+
 /// returns the number of elements of an array
 #define DIM(arr) (sizeof((arr))/sizeof((arr)[0]))
 
@@ -1065,7 +1060,8 @@ int16_t applyLimits(uint8_t channel, int32_t value);
 
 void evalInputs(uint8_t mode);
 uint16_t anaIn(uint8_t chan);
-extern int16_t calibratedStick[NUM_STICKS+NUM_POTS+NUM_SLIDERS+NUM_MOUSE_ANALOGS];
+
+extern int16_t calibratedAnalogs[NUM_CALIBRATED_ANALOGS];
 
 #define FLASH_DURATION 20 /*200ms*/
 
@@ -1367,7 +1363,11 @@ void opentxResume();
 #endif
 
 // Re-useable byte array to save having multiple buffers
-#define SD_SCREEN_FILE_LENGTH (64)
+#if LCD_W <= 212
+#define SD_SCREEN_FILE_LENGTH          32
+#else
+#define SD_SCREEN_FILE_LENGTH          64
+#endif
 union ReusableBuffer
 {
   // 275 bytes
@@ -1667,12 +1667,12 @@ extern Clipboard clipboard;
 #endif
 
 #if !defined(SIMU)
-extern uint16_t s_anaFilt[NUMBER_ANALOG];
+extern uint16_t s_anaFilt[NUM_ANALOGS];
 #endif
 
 #if defined(JITTER_MEASURE)
-extern JitterMeter<uint16_t> rawJitter[NUMBER_ANALOG];
-extern JitterMeter<uint16_t> avgJitter[NUMBER_ANALOG];
+extern JitterMeter<uint16_t> rawJitter[NUM_ANALOGS];
+extern JitterMeter<uint16_t> avgJitter[NUM_ANALOGS];
 #if defined(PCBHORUS)
   #define JITTER_MEASURE_ACTIVE()   (menuHandlers[menuLevel] == menuStatsAnalogs)
 #elif defined(PCBTARANIS)

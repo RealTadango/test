@@ -21,7 +21,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include "opentx.h"
-#include "lua/lua_api.h"
+#include "lua_api.h"
 
 /*luadoc
 @function lcd.refresh()
@@ -105,6 +105,9 @@ static int luaLcdDrawLine(lua_State *L)
   int y2 = luaL_checkinteger(L, 4);
   int pat = luaL_checkinteger(L, 5);
   int flags = luaL_checkinteger(L, 6);
+
+  if (x1 < 0 || x1 >= LCD_W || y1 < 0 || y1 >= LCD_H || x2 < 0 || x2 >= LCD_W || y2 < 0 || y2 >= LCD_H)
+    return 0;
 
   if (pat == SOLID) {
     if (x1 == x2) {
@@ -325,9 +328,18 @@ static int luaLcdDrawSource(lua_State *L)
 /*luadoc
 @function Bitmap.open(name)
 
-Loads a bitmap in memory, for later use with lcd.drawBitmap()
+Loads a bitmap in memory, for later use with lcd.drawBitmap(). Bitmaps should be loaded only
+once, returned object should be stored and used for drawing. If loading fails for whatever
+reason the resulting bitmap object will have width and height set to zero.
+
+Bitmap loading can fail if:
+ * File is not found or contains invalid image
+ * System is low on memory
+ * Combined memory usage of all Lua script bitmaps exceeds certain value
 
 @param name (string) full path to the bitmap on SD card (i.e. “/IMAGES/test.bmp”)
+
+@retval bitmap (object) a bitmap object that can be used with other bitmap functions
 
 @notice Only available on Horus
 
@@ -337,14 +349,25 @@ static int luaOpenBitmap(lua_State * L)
 {
   const char * filename = luaL_checkstring(L, 1);
 
-  BitmapBuffer ** ptr = (BitmapBuffer **)lua_newuserdata(L, sizeof(BitmapBuffer *));
-  *ptr = BitmapBuffer::load(filename);
-  TRACE("luaOpenBitmap: %p", *ptr);
+  BitmapBuffer ** b = (BitmapBuffer **)lua_newuserdata(L, sizeof(BitmapBuffer *));
 
-  if (*ptr == NULL && G(L)->gcrunning) {
-    luaC_fullgc(L, 1);  /* try to free some memory... */
-    *ptr = BitmapBuffer::load(filename);  /* try again */
-     TRACE("luaOpenBitmap: %p (second try)", *ptr);
+  if (luaExtraMemoryUsage > LUA_MEM_EXTRA_MAX) {
+    // already allocated more than max allowed, fail
+    TRACE("luaOpenBitmap: Error, using too much memory %u/%u", luaExtraMemoryUsage, LUA_MEM_EXTRA_MAX);
+    *b = 0;
+  }
+  else {
+    *b = BitmapBuffer::load(filename);
+    if (*b == NULL && G(L)->gcrunning) {
+      luaC_fullgc(L, 1);  /* try to free some memory... */
+      *b = BitmapBuffer::load(filename);  /* try again */
+    }
+  }
+
+  if (*b) {
+    uint32_t size = (*b)->getDataSize();
+    luaExtraMemoryUsage += size;
+    TRACE("luaOpenBitmap: %p (%u)", *b, size);
   }
 
   luaL_getmetatable(L, LUA_BITMAPHANDLE);
@@ -360,13 +383,16 @@ static BitmapBuffer * checkBitmap(lua_State * L, int index)
   return *b;
 }
 
-
 /*luadoc
 @function Bitmap.getSize(name)
 
-Return width, heigh of a bitmap in memory
+Return width, height of a bitmap object
 
-@param bitmap (pointer) point to a bitmap previously opened with Bipmap.open()
+@param bitmap (pointer) point to a bitmap previously opened with Bitmap.open()
+
+@retval multiple returns 2 values:
+ * (number) width in pixels
+ * (number) height in pixels
 
 @notice Only available on Horus
 
@@ -374,7 +400,7 @@ Return width, heigh of a bitmap in memory
 */
 static int luaGetBitmapSize(lua_State * L)
 {
-  BitmapBuffer * b = checkBitmap(L, 1);
+  const BitmapBuffer * b = checkBitmap(L, 1);
   if (b) {
     lua_pushinteger(L, b->getWidth());
     lua_pushinteger(L, b->getHeight());
@@ -388,9 +414,18 @@ static int luaGetBitmapSize(lua_State * L)
 
 static int luaDestroyBitmap(lua_State * L)
 {
-  BitmapBuffer * ptr = checkBitmap(L, 1);
-  TRACE("luaDestroyBitmap: %p", ptr);
-  delete ptr;
+  BitmapBuffer * b = checkBitmap(L, 1);
+  if (b) {
+    uint32_t size = b->getDataSize();
+    TRACE("luaDestroyBitmap: %p (%u)", b, size);
+    if (luaExtraMemoryUsage >= size) {
+      luaExtraMemoryUsage -= size;
+    }
+    else {
+      luaExtraMemoryUsage = 0;
+    }
+    delete b;
+  }
   return 0;
 }
 
@@ -415,11 +450,12 @@ void registerBitmapClass(lua_State * L)
 
 Displays a bitmap at (x,y)
 
-@param bitmap (pointer) point to a bitmap previously opened with Bipmap.open()
+@param bitmap (pointer) point to a bitmap previously opened with Bitmap.open()
 
 @param x,y (positive numbers) starting coordinates
 
-@param scale (positive numbers) scale in %, 50 divides size by two, 100 is unchanged, 200 doubles size
+@param scale (positive numbers) scale in %, 50 divides size by two, 100 is unchanged, 200 doubles size.
+Omitting scale draws image in 1:1 scale and is faster than specifying 100 for scale.
 
 @notice Only available on Horus
 
@@ -428,15 +464,19 @@ Displays a bitmap at (x,y)
 static int luaLcdDrawBitmap(lua_State *L)
 {
   if (!luaLcdAllowed) return 0;
-  const BitmapBuffer * bitmap = checkBitmap(L, 1);
-  int x = luaL_checkinteger(L, 2);
-  int y = luaL_checkinteger(L, 3);
-  unsigned scale = luaL_optunsigned(L, 4, 0);
+  const BitmapBuffer * b = checkBitmap(L, 1);
 
-  if (bitmap) {
-    lcd->drawBitmap(x, y, bitmap, 0, 0, 0, 0, (float) scale/100);
+  if (b) {
+    unsigned int x = luaL_checkunsigned(L, 2);
+    unsigned int y = luaL_checkunsigned(L, 3);
+    unsigned int scale = luaL_optunsigned(L, 4, 0);
+    if (scale) {
+      lcd->drawBitmap(x, y, b, 0, 0, 0, 0, scale/100.0f);
+    }
+    else {
+      lcd->drawBitmap(x, y, b);
+    }
   }
-
   return 0;
 }
 #elif LCD_DEPTH > 1
@@ -449,7 +489,7 @@ Draw a bitmap at (x,y)
 
 @param name (string) full path to the bitmap on SD card (i.e. “/IMAGES/test.bmp”)
 
-@notice Only available on Taranis X9 series
+@notice Only available on Taranis X9 series. Maximum image size if 106 x 64 pixels (width x height).
 
 @status current Introduced in 2.0.0
 */

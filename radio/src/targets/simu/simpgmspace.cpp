@@ -167,9 +167,17 @@ void simuSetKey(uint8_t key, bool state)
     KEY_CASE(KEY_MENU, KEYS_GPIO_REG_MENU, KEYS_GPIO_PIN_MENU)
     KEY_CASE(KEY_EXIT, KEYS_GPIO_REG_EXIT, KEYS_GPIO_PIN_EXIT)
 #endif
-#if defined(PCBHORUS)
-    KEY_CASE(KEY_PGUP, KEYS_GPIO_REG_MENU, KEYS_GPIO_PIN_MENU)
-    KEY_CASE(KEY_PGDN, KEYS_GPIO_REG_EXIT, KEYS_GPIO_PIN_EXIT)
+#if defined(PCBX12S)
+    KEY_CASE(KEY_PGUP, KEYS_GPIO_REG_PGUP, KEYS_GPIO_PIN_PGUP)
+    KEY_CASE(KEY_PGDN, KEYS_GPIO_REG_PGDN, KEYS_GPIO_PIN_PGDN)
+    KEY_CASE(KEY_ENTER, KEYS_GPIO_REG_ENTER, KEYS_GPIO_PIN_ENTER)
+    KEY_CASE(KEY_TELEM, KEYS_GPIO_REG_RIGHT, KEYS_GPIO_PIN_RIGHT)
+    KEY_CASE(KEY_RADIO, KEYS_GPIO_REG_LEFT, KEYS_GPIO_PIN_LEFT)
+    KEY_CASE(KEY_MODEL, KEYS_GPIO_REG_UP, KEYS_GPIO_PIN_UP)
+    KEY_CASE(KEY_EXIT, KEYS_GPIO_REG_DOWN, KEYS_GPIO_PIN_DOWN)
+#elif defined(PCBX10)
+    // KEY_CASE(KEY_PGUP, KEYS_GPIO_REG_MENU, KEYS_GPIO_PIN_MENU)
+    // KEY_CASE(KEY_PGDN, KEYS_GPIO_REG_EXIT, KEYS_GPIO_PIN_EXIT)
     KEY_CASE(KEY_ENTER, KEYS_GPIO_REG_ENTER, KEYS_GPIO_PIN_ENTER)
     KEY_CASE(KEY_TELEM, KEYS_GPIO_REG_RIGHT, KEYS_GPIO_PIN_RIGHT)
     KEY_CASE(KEY_RADIO, KEYS_GPIO_REG_LEFT, KEYS_GPIO_PIN_LEFT)
@@ -550,6 +558,10 @@ void lcdRefresh()
   simuLcdRefresh = true;
 }
 
+void telemetryPortInit(uint8_t baudrate)
+{
+}
+
 void telemetryPortInit()
 {
 }
@@ -568,14 +580,18 @@ int lcdRestoreBackupBuffer()
 }
 #endif
 
-uint32_t pwroffPressed() { return false; }
-
-#if defined(CPUARM) && !defined(PWR_BUTTON_DELAY)
-uint32_t pwrCheck() { return true; }
-#endif
-
 #if defined(CPUARM)
-void pwrOff() { }
+void pwrOff()
+{
+}
+uint32_t pwrPressed()
+{
+#if defined(PWR_BUTTON_PRESS)
+  return false;
+#else
+  return true;
+#endif
+}
 #endif
 
 #if defined(STM32)

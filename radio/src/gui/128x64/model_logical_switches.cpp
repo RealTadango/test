@@ -115,7 +115,7 @@ void menuModelLogicalSwitchOne(event_t event)
           v1_max = 122;
         }
         else {
-          v1_val = (uint8_t)cs->v1;
+          v1_val = cs->v1;
           drawSource(CSWONE_2ND_COLUMN, y, v1_val, attr);
           INCDEC_SET_FLAG(EE_MODEL | INCDEC_SOURCE);
           INCDEC_ENABLE_CHECK(isSourceAvailable);
@@ -227,7 +227,7 @@ void menuModelLogicalSwitchOne(event_t event)
 
 void onLogicalSwitchesMenu(const char *result)
 {
-  int8_t sub = menuVerticalPosition;
+  int8_t sub = menuVerticalPosition - HEADER_LINE;
   LogicalSwitchData * cs = lswAddress(sub);
 
   if (result == STR_EDIT) {
@@ -410,12 +410,12 @@ void menuModelLogicalSwitches(event_t event)
       }
       else {
         lcdDrawNumber(CSW_3RD_COLUMN, y, cs->v2, LEFT|attr2);
-#if defined(GVARS)
+#if defined(CPUARM) && defined(GVARS)
         if (v1_val >= MIXSRC_GVAR1) {
           v2_min = -1024; v2_max = +1024;
         }
         else
-#endif // GVARS
+#endif
         {
           v2_min = -LIMIT_EXT_PERCENT; v2_max = +LIMIT_EXT_PERCENT;
         }

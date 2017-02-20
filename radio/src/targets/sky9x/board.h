@@ -234,6 +234,7 @@ void calcConsumption();
 
 // Trainer driver
 #define SLAVE_MODE()                   (pwrCheck() == e_power_trainer)
+#define TRAINER_CONNECTED()            (PIOA->PIO_PDSR & PIO_PA8)
 void checkTrainerSettings();
 void init_trainer_capture();
 
@@ -258,6 +259,11 @@ void init_pxx(uint32_t port);
 void disable_pxx(uint32_t port);
 void init_dsm2(uint32_t port);
 void disable_dsm2(uint32_t port);
+
+#if defined(MULTIMODULE)
+void init_multimodule(uint32_t module_index);
+void disable_multimodule(uint32_t module_index);
+#endif
 
 // SD driver
 #if defined(SIMU)
@@ -314,7 +320,19 @@ enum Analogs {
 #if !defined(REVA)
   TX_CURRENT,
 #endif
-  NUMBER_ANALOG
+  NUM_ANALOGS
+};
+enum CalibratedAnalogs {
+  CALIBRATED_STICK1,
+  CALIBRATED_STICK2,
+  CALIBRATED_STICK3,
+  CALIBRATED_STICK4,
+  CALIBRATED_POT_FIRST,
+  CALIBRATED_POT1 = CALIBRATED_POT_FIRST,
+  CALIBRATED_POT2,
+  CALIBRATED_POT3,
+  CALIBRATED_POT_LAST = CALIBRATED_POT3,
+  NUM_CALIBRATED_ANALOGS
 };
 #define IS_POT(x)                      ((x)>=POT_FIRST && (x)<=POT_LAST)
 #define IS_SLIDER(x)                   false
@@ -356,10 +374,14 @@ void btPushByte(uint8_t data);
 #endif
 
 // Power driver
+#define TRAINER_PWR
+#if !defined(REVA)
+#define SOFT_PWR_CTRL
+#endif
 void pwrInit();
 void pwrOff();
 uint32_t pwrCheck();
-uint32_t pwroffPressed();
+uint32_t pwrPressed();
 #define UNEXPECTED_SHUTDOWN()          (g_eeGeneral.unexpectedShutdown)
 
 // EEPROM driver

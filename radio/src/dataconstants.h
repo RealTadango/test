@@ -215,12 +215,18 @@ enum CurveType {
   #define NUM_ROTARY_ENCODERS          0
 #endif
 
-#if defined(PCBHORUS)
+#if defined(PCBX10)
   #define NUM_AUX_TRIMS                2
   #define NUM_MOUSE_ANALOGS            2
+  #define NUM_DUMMY_ANAS               2
+#elif defined(PCBHORUS)
+  #define NUM_AUX_TRIMS                2
+  #define NUM_MOUSE_ANALOGS            2
+  #define NUM_DUMMY_ANAS               0
 #else
   #define NUM_AUX_TRIMS                0
   #define NUM_MOUSE_ANALOGS            0
+  #define NUM_DUMMY_ANAS               0
 #endif
 
 #if defined(COLORLCD)
@@ -288,6 +294,12 @@ enum BeeperMode {
     EXTRA_MODULE,
     TRAINER_MODULE
   };
+#endif
+
+#if defined(PCBTARANIS) || defined(PCBHORUS)
+  #define IS_INTERNAL_MODULE_ENABLED() (g_model.moduleData[INTERNAL_MODULE].rfProtocol != RF_PROTO_OFF)
+#elif defined(PCBSKY9X)
+  #define IS_INTERNAL_MODULE_ENABLED() (false)
 #endif
 
 enum UartModes {

@@ -32,7 +32,7 @@
 #include "appdata.h"
 #include "helpers.h"
 #include "modeledit/modeledit.h"
-#include "simulatordialog.h"
+#include "simulatormainwindow.h"
 #include "storage/sdcard.h"
 
 Stopwatch gStopwatch("global");
@@ -579,11 +579,11 @@ void populateSourceCB(QComboBox *b, const RawSource & source, const GeneralSetti
   }
 
   if (flags & POPULATE_SOURCES) {
-    for (int i=0; i<CPN_MAX_STICKS+getCurrentFirmware()->getCapability(Pots)+getCurrentFirmware()->getCapability(Sliders); i++) {
+    for (int i=0; i<CPN_MAX_STICKS+getBoardCapability(getCurrentBoard(), Board::Pots)+getBoardCapability(getCurrentBoard(), Board::Sliders); i++) {
       item = RawSource(SOURCE_TYPE_STICK, i);
       // skip unavailable pots and sliders
       if (item.isPot() && !generalSettings.isPotAvailable(i-CPN_MAX_STICKS)) continue;
-      if (item.isSlider() && !generalSettings.isSliderAvailable(i-CPN_MAX_STICKS-getCurrentFirmware()->getCapability(Pots))) continue;
+      if (item.isSlider() && !generalSettings.isSliderAvailable(i-CPN_MAX_STICKS-getBoardCapability(getCurrentBoard(), Board::Pots))) continue;
       b->addItem(item.toString(model), item.toValue());
       if (item == source) b->setCurrentIndex(b->count()-1);
     }
@@ -609,7 +609,7 @@ void populateSourceCB(QComboBox *b, const RawSource & source, const GeneralSetti
   }
 
   if (flags & POPULATE_SWITCHES) {
-    for (int i=0; i<getCurrentFirmware()->getCapability(Switches); i++) {
+    for (int i=0; i<getBoardCapability(board, Board::Switches); i++) {
       item = RawSource(SOURCE_TYPE_SWITCH, i);
       b->addItem(item.toString(model), item.toValue());
       if (IS_HORUS_OR_TARANIS(board) && !generalSettings.switchSourceAllowedTaranis(i)) {
@@ -823,20 +823,24 @@ void startSimulation(QWidget * parent, RadioData & radioData, int modelIdx)
       simuData->setCurrentModel(modelIdx);
     }
 
-    SimulatorDialog * dialog = new SimulatorDialog(parent, simulator, flags);
-    if (IS_HORUS(getCurrentBoard()) && !dialog->useTempDataPath(true)) {
-      QMessageBox::critical(NULL, QObject::tr("Data Load Error"), QObject::tr("Error: Could not create temporary directory in '%1'").arg(QDir::tempPath()));
+    SimulatorMainWindow * dialog = new SimulatorMainWindow(parent, simulator, flags);
+    if (!dialog->setRadioData(simuData)) {
+      QMessageBox::critical(NULL, QObject::tr("Data Load Error"), QObject::tr("Error occurred while starting simulator."));
       delete dialog;
       delete simuData;
       return;
     }
-    dialog->setRadioData(simuData);
-    qDebug() << __FILE__ << __LINE__ << "Starting" << getCurrentFirmware()->getName() << "simulation with SD path" << dialog->getSdPath() << "and models/settings path" << dialog->getDataPath();
+
+    dialog->setWindowModality(Qt::ApplicationModal);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->start();
-    dialog->exec();
-    delete dialog;
-    // TODO Horus tmp directory is deleted on simulator close OR we could use it to get back data from the simulation
-    delete simuData;  // TODO same with simuData, could read it back and update the file data
+
+    QObject::connect(dialog, &SimulatorMainWindow::destroyed, [simuData] (void) {
+      // TODO simuData and Horus tmp directory is deleted on simulator close OR we could use it to get back data from the simulation
+      delete simuData;
+    });
+
+    dialog->show();
   }
   else {
     QMessageBox::warning(NULL,
@@ -851,8 +855,8 @@ QPixmap makePixMap(const QImage & image)
   QImage result = image.scaled(firmware->getCapability(LcdWidth), firmware->getCapability(LcdHeight));
   if (firmware->getCapability(LcdDepth) == 4) {
     result = result.convertToFormat(QImage::Format_RGB32);
-    for (int i = 0; i < image.width(); ++i) {
-      for (int j = 0; j < image.height(); ++j) {
+    for (int i = 0; i < result.width(); ++i) {
+      for (int j = 0; j < result.height(); ++j) {
         QRgb col = result.pixel(i, j);
         int gray = qGray(col);
         result.setPixel(i, j, qRgb(gray, gray, gray));
